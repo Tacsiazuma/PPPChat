@@ -45,20 +45,20 @@ jQuery(document).ready(function($) {
 			maxChatFrames : 3,
 			uid : Number(host.uid),
 			queue : [],
+			hoverBox: null,
 		
 		/**
 		 * Our controller class
 		 */
-		controller : function(ajax) {
+		controller : function() {
+			this.url = host.url;
+			this.lastMessageId = 0;
 			// constructor
-			this.ajax = ajax;
 			this.siteTitle = document.title;
 			this.chatsound = new Audio("https://fbstatic-a.akamaihd.net/rsrc.php/yT/r/q-Drar4Ade6.ogg"); 
-			this.lastMessageId = 0;
 			this.messagecounter = 0;
 			this.friendList = [];
 			this.friends = host.friend;
-			console.log('Controller created');
 		},
 			/**
 			 * The message object
@@ -73,10 +73,7 @@ jQuery(document).ready(function($) {
 			this.serverid = null;
 			this.reference = null;
 		},
-		Ajax : function(url) {
-			this.url = url;
-			console.log('Ajax created');
-		},	
+			
 		/**
 		 *  The friend object
 		 */
@@ -109,7 +106,7 @@ jQuery(document).ready(function($) {
 				'</div><div class="friendname">' + friend.firstname + 
 				' '+ friend.lastname + '</div><div class="onlinemark">'
 				+ friend.onlinemark +'</div></div>');
-		label = $('.friend[uid="'+friend.uid+ '"]');
+		label = $('.friend[uid="'+friend.uid+ '"]');		
 		friendObject = new PPPChat.Friend(friend.firstname, friend.lastname, friend.uid, friend.profileicon, label);
 		label.click({'friend': friendObject },			
 			this.addChatFrame
@@ -178,6 +175,8 @@ jQuery(document).ready(function($) {
 		// build up the sidebar
 		$('body').append('<div id="chatsidebar"></div>');
 		this.sidebar = $('#chatsidebar');
+		$('body').append('<div id="pppchathover"></div>');
+		PPPChat.hoverBox = $('#pppchathover');
 		if (host.friend != null) {
         this.friends.forEach(function(friend){
         	this.addFriend(friend);
@@ -186,9 +185,13 @@ jQuery(document).ready(function($) {
   
         $('body').append("<div id=\"chatframewrapper\"></div>");
 		this.wrapper = $('#chatframewrapper');
-		this.background(); // we start the background process
+		PPPChat.controller.background(this); // we start the background process
 	}
-	
+	PPPChat.message.prototype.addHover = function() {
+		this.reference.children().hover(function(){
+			console.log(this);
+		});
+	}
 	
 	
 	/**
@@ -202,6 +205,7 @@ jQuery(document).ready(function($) {
 		string += '" clientid="'+ message.clientid+'">' + message.body + '</div></div>';
 		this.chathistory.append(string);
 		message.reference = this.chathistory.children('[clientid="'+message.clientid+'"]'); // create a reference to the message visual representation
+		message.addHover();
 		this.messages.push(message);
 		this.chathistory.parent().scrollTop(frame.chathistory.height());
 		this.inputField.val('');
@@ -231,7 +235,7 @@ jQuery(document).ready(function($) {
 		if (this.inputField.val().trim() == '') return;
 		// generate a message object
 		message = new PPPChat.message(PPPChat.uid,	// sender uid
-				  this.uid, // target uid
+				  Number(this.uid), // target uid
 				  this.inputField.val(), // the message to be sent
 				  PPPChat.messageCounter,	// the client id
 				  new Date().getTime()); // and the timestamp
@@ -260,29 +264,31 @@ jQuery(document).ready(function($) {
 	/**
 	 * The background process
 	 */
-	PPPChat.controller.prototype.background = function() {
-		controller = this; // define the controller to be used inside settimeout
-		// every 5 seconds it will gather data to be sent, then send a request
-		controller.ajax.sendMessage(controller, controller.buildRequest());	 
+	PPPChat.controller.background = function(controller) {
+		// every 5 seconds it will gather data to be sent, then send a request	 
+		setTimeout(function(){
+			request = controller.buildRequest()
+			controller.sendRequest(request);
+		}, 3000);
 	}
 	
-	PPPChat.Ajax.prototype.sendMessage = function(controller, request) {
-		setTimeout(function(){
+	PPPChat.controller.prototype.sendRequest = function(request) {
 			$.ajax({ 
+				context : this,
 				type : 'POST',
-				url : controller.ajax.url,
+				url : request.url,
 				data : { 
 					action: 'refresh',
-					lastMessageId : Number(controller.lastMessageId),
+					lastMessageId : this.lastMessageId,
 					messages : request.messages 
 				},			
 				success: function(response) {
-					controller.handleResponse(response)
+					this.handleResponse(response)
 				},
-				complete: controller.background,
+				complete: function() { 
+					PPPChat.controller.background(this) },
 				dataType: 'json' }
 			)
-		}, 3000);
 	}
 	
 	/**
@@ -322,11 +328,12 @@ jQuery(document).ready(function($) {
 			}, this);
 			this.chatsound.play(); // play the sound
 		}
-		this.background();
 	};
 	
 	PPPChat.controller.prototype.updateLastMessageId = function(id) {
-		this.lastMessageId = Number(id);
+		if (this.lastMessageId < Number(id)) {
+			this.lastMessageId = Number(id); 
+		}
 	}
 	
 	/**
@@ -334,12 +341,22 @@ jQuery(document).ready(function($) {
 	 */
 	PPPChat.controller.prototype.buildRequest = function() {
 		request = {};
+		request.url = host.url;
+		request.messages = [];
 		request.lastmessage = this.lastMessageId;
 		// we got messages to be sent
-		if (PPPChat.queue.length > 0) {
-			request.messages = PPPChat.queue; // assign the message objects to be sent
+		PPPChat.queue.forEach(function(m) {
+			message = { 
+					'id' : m.id,
+					'body': m.body,
+					'sender': m.sender,
+					'clientid': m.clientid,
+					'sent': m.sent,
+					'receiver': m.receiver
+					};
+			request.messages.push(message);
+		});  // assign the message objects to be sent
 			PPPChat.queue = []; // empty the message queue
-		}
 		return request;
 	}
 	
@@ -347,8 +364,7 @@ jQuery(document).ready(function($) {
 	/**
 	 * Start our script
 	 */
-	var ajax = new PPPChat.Ajax(host.url);
-	var chat = new PPPChat.controller(ajax);
+	var chat = new PPPChat.controller();
 	chat.init();
 });
 
