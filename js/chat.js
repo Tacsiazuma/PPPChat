@@ -22,6 +22,7 @@ jQuery(document).ready(function($) {
 			this.reference = reference;
 			this.chatlabel = chatlabel;
 			this.chathistory = history;
+			this.hasUnread = false;
 			this.inputField = inputfield;
 			this.gravatar = gravatar;
 			this.focused = false;
@@ -31,6 +32,7 @@ jQuery(document).ready(function($) {
 			);
 			this.inputField.focus(function() {
 				this.focused = true;
+				this.hasUnread = false; // we focused on the chatframe so turn off the unread message alert
 			} );
 			this.inputField.blur(function() {
 				this.focused = false;
@@ -167,6 +169,20 @@ jQuery(document).ready(function($) {
 		}
 	}
 	/**
+	 * The flashing document title regarding to an unread message
+	 */
+	PPPChat.controller.prototype.hasUnread = function() {
+		setTimeout(function(){
+			this.chatFrames.forEach(function(frame){
+				document.title = frame.name;
+			});
+		},2000);
+		document.title = this.siteTitle;
+		
+	}
+	
+	
+	/**
 	 * Initialize the plugin
 	 * Create the sidebar, then fill it with friends got by json headscript
 	 * Then create the chatframewrapper and start the background process
@@ -187,9 +203,17 @@ jQuery(document).ready(function($) {
 		this.wrapper = $('#chatframewrapper');
 		PPPChat.controller.background(this); // we start the background process
 	}
+	
+	/**
+	 * Add a hover event handler to a message
+	 */
 	PPPChat.message.prototype.addHover = function() {
-		this.reference.children().hover(function(){
-			console.log(this);
+		message = this;
+		this.reference.children().mousemove(function(e){
+			PPPChat.hoverBox.css('display', 'block').css('top', e.clientY +5).css('left', e.clientX+5).html(timeConverter(message.sent));
+		});
+		this.reference.children().mouseout(function(){
+			PPPChat.hoverBox.css('display', 'none');
 		});
 	}
 	
@@ -199,6 +223,7 @@ jQuery(document).ready(function($) {
 	 * @param message
 	 */
     PPPChat.chatFrame.prototype.addMessage = function(message) {
+    	console.log(message);
 		string = '<div class="messagerow" clientid="'+message.clientid+'"><div class="';
 		if (message.sender == PPPChat.uid) string += 'out';
 		else string += 'in';
@@ -269,7 +294,7 @@ jQuery(document).ready(function($) {
 		setTimeout(function(){
 			request = controller.buildRequest()
 			controller.sendRequest(request);
-		}, 3000);
+		}, 5000);
 	}
 	
 	PPPChat.controller.prototype.sendRequest = function(request) {
@@ -293,43 +318,52 @@ jQuery(document).ready(function($) {
 	
 	/**
 	 * Handles the response from the server
+	 * @param response
 	 */
+	
 	PPPChat.controller.prototype.handleResponse = function(response) {
+		// if present, foreach the acknowledgements
 		if (response.ack != null) {
 			response.ack.forEach(function(ack) {
-				$('[clientid="'+ack.clientid+'"]').attr('serverid', ack.serverid);
-				$('[clientid="'+ack.clientid+'"]').removeAttr('clientid', 1000 );
+				// look inside the chatFrames
+				PPPChat.chatFrames.forEach(function(frame) {
+					frame.messages.forEach(function(message){
+						if (ack.clientid == message.serverid) {
+							message.serverid = ack.serverid;
+						}
+						
+					})
+				});
+//				$('[clientid="'+ack.clientid+'"]').attr('serverid', ack.serverid);
+//				$('[clientid="'+ack.clientid+'"]').removeAttr('clientid', 1000 );
 			});
 		}
+		// if messages present
 		if (response.messages != null) {
-			response.messages.forEach(function(message){
+			// foreach them
+			response.messages.forEach(function(m){
+				message = new PPPChat.message(
+						Number(m.sender),
+						Number(m.receiver),
+						m.content,
+						m.serverid,
+						m.sent,
+						new Date().getTime()
+						);
 				// find the corresponding frame
 				this.updateLastMessageId(message.serverid);
 				
 				PPPChat.chatFrames.forEach(function(frame){
 					// found the frame
 					if (frame.uid == message.sender) {
-						string = '<div class="messagerow" serverid="'+message.serverid+'"><img src="'+frame.gravatar+'"><div class="in" serverid="' + message.serverid +'">' + message.content + '</div></div>';
-						// iterate through the message rows
-						frame.chathistory.children('.messagerow').each(function() {
-							// if the serverid of the given row is bigger, then insert it before the element
-							// otherwise go on
-							if ($(this).attr('serverid') > message.serverid) {
-								$(this).before(string);
-								return false; // exit the foreach
-							}
-								
-						});
-						frame.chathistory.append(string);
-					}
-					
-				});
-				// or open a new one
-			}, this);
-			this.chatsound.play(); // play the sound
-		}
-	};
-	
+						frame.addMessage(message);
+						}		
+					});
+				},this);
+			}
+			// this.chatsound.play(); // play the sound
+		};
+		
 	PPPChat.controller.prototype.updateLastMessageId = function(id) {
 		if (this.lastMessageId < Number(id)) {
 			this.lastMessageId = Number(id); 
@@ -360,12 +394,30 @@ jQuery(document).ready(function($) {
 		return request;
 	}
 	
-
+	/**
+	 * Some helper function
+	 */
+	function timeConverter(UNIX_timestamp){
+		  var a = new Date(UNIX_timestamp);
+		  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+		  var year = a.getFullYear();
+		  var month = months[a.getMonth()];
+		  var date = a.getDate();
+		  var hour = a.getHours();
+		  var min = a.getMinutes();
+		  if (min < 10) min = '0' + min;
+		  var sec = a.getSeconds();
+		  var time = date + ', ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+		  return time;
+		}	
+	
 	/**
 	 * Start our script
 	 */
 	var chat = new PPPChat.controller();
 	chat.init();
+
+	
 });
 
 
