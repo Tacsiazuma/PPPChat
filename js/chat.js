@@ -103,12 +103,12 @@ jQuery(document).ready(function($) {
 	 * @param friend
 	 */
 	PPPChat.controller.prototype.addFriend = function(friend) {
-		this.sidebar.append('<div class="friend" uid="' + friend.uid
+		this.sidebar.append('<div class="friend" uid="' + Number(friend.uid)
 				+'"><div class="friendpic">' +  friend.profilepic + 
 				'</div><div class="friendname">' + friend.firstname + 
 				' '+ friend.lastname + '</div><div class="onlinemark">'
 				+ friend.onlinemark +'</div></div>');
-		label = $('.friend[uid="'+friend.uid+ '"]');		
+		label = $('.friend[uid="'+Number(friend.uid)+ '"]');		
 		friendObject = new PPPChat.Friend(friend.firstname, friend.lastname, friend.uid, friend.profileicon, label);
 		label.click({'friend': friendObject },			
 			this.addChatFrame
@@ -130,6 +130,17 @@ jQuery(document).ready(function($) {
 		}
 			
 	}
+	/**
+	 * We successfully sent a message to get rid of its pending attribute
+	 */
+	PPPChat.message.prototype.successfullySent = function(serverid) {
+		this.serverid = Number(serverid);
+		console.log(this.reference.children());
+		this.reference.children().removeClass('pending');
+	}
+	
+	
+	
 	
 	/**
 	 * Adds a chatframe to the UI
@@ -152,7 +163,7 @@ jQuery(document).ready(function($) {
 		frameid = 	PPPChat.chatFrames.length;
 		$('#chatframewrapper').append('<div id="pppchat" frame="'+frameid+'"></div>');
 		reference = $('[frame="'+frameid + '"]');
-		reference.append('<div class="chatlabel" uid="'+ friend.uid +'">'+ friend.firstname+' '+friend.lastname +'</div>').append('<div class="outercontainer"><div class="history" uid="'+ friend.uid +'"></div></div>').append('<div class="inputfield" uid="'+ friend.uid +'"><textarea class="text"></textarea></div>');
+		reference.append('<div class="chatlabel">'+ friend.firstname+' '+friend.lastname +'</div>').append('<div class="outercontainer"><div class="history"></div></div>').append('<div class="inputfield"><textarea class="text"></textarea></div>');
 		chatLabel = reference.children('.chatlabel');
 		chatHistory = chatLabel.next().children('.history');
 		inputField = reference.children('.inputfield').children();
@@ -223,14 +234,14 @@ jQuery(document).ready(function($) {
 	 * @param message
 	 */
     PPPChat.chatFrame.prototype.addMessage = function(message) {
-    	console.log(message);
-		string = '<div class="messagerow" clientid="'+message.clientid+'"><div class="';
+		string = '<div class="messagerow" clientid="'+ message.clientid +'"><div class="';
 		if (message.sender == PPPChat.uid) string += 'out';
 		else string += 'in';
-		string += '" clientid="'+ message.clientid+'">' + message.body + '</div></div>';
+		string += ' pending" clientid="'+ message.clientid+'">' + message.body + '</div></div>';
 		this.chathistory.append(string);
-		message.reference = this.chathistory.children('[clientid="'+message.clientid+'"]'); // create a reference to the message visual representation
+		message.reference = this.chathistory.children('[clientid="'+message.clientid+'"]').last(); // create a reference to the message visual representation
 		message.addHover();
+		console.log(message.reference);
 		this.messages.push(message);
 		this.chathistory.parent().scrollTop(frame.chathistory.height());
 		this.inputField.val('');
@@ -298,6 +309,7 @@ jQuery(document).ready(function($) {
 	}
 	
 	PPPChat.controller.prototype.sendRequest = function(request) {
+		console.log(request);
 			$.ajax({ 
 				context : this,
 				type : 'POST',
@@ -322,14 +334,16 @@ jQuery(document).ready(function($) {
 	 */
 	
 	PPPChat.controller.prototype.handleResponse = function(response) {
+		console.log(response);
 		// if present, foreach the acknowledgements
 		if (response.ack != null) {
 			response.ack.forEach(function(ack) {
 				// look inside the chatFrames
 				PPPChat.chatFrames.forEach(function(frame) {
 					frame.messages.forEach(function(message){
-						if (ack.clientid == message.serverid) {
-							message.serverid = ack.serverid;
+						if (Number(ack.clientid) == Number(message.clientid)) {
+							console.log('lefut');
+							message.successfullySent(ack.serverid); 
 						}
 						
 					})
