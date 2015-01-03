@@ -11,9 +11,9 @@ class AjaxController {
     private $mapper;
     private $response;
     
-    public function __construct() {
-        $this->mapper = new MessageMapper(get_current_user_id());
-        $this->response = new Response();
+    public function __construct(MessageMapper $mapper, Response $response) {
+        $this->mapper = $mapper;
+        $this->response = $response;
         
     }
     /**
@@ -35,10 +35,13 @@ class AjaxController {
     private function normalPoll($user) {
         
         // put the messages to the database then make a key -> value pair with clientid -> serverid
+        // to the response ack field
         foreach ($_POST['messages'] as $message) {
             $serverid = $this->mapper->saveMessage($user->ID, $message['receiver'], $message['body']);
+            $idsToUpdate[] = $serverid;
             $this->response->ack[] = array('clientid' => $message['clientid'], 'serverid' => $serverid);    
         }
+        $this->mapper->updateReadmessages($idsToUpdate);
         // check for new messages too
         if ($this->mapper->hasUnRead($user->ID, $_POST['lastMessageId'])) {
             $this->response->messages =  $this->mapper->getResults();

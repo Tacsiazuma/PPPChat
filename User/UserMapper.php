@@ -28,7 +28,6 @@ class UserMapper {
      * @return multitype:\PPPChat\FriendList\Friend
      */
     public function get() {
-        $this->addFriend($this->id, 1);
       $users = get_user_meta($this->id, 'PPPfriends');
       $userobjects = $this->hydrateUsers($users);
       
