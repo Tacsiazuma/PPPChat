@@ -37,10 +37,12 @@ jQuery(document).ready(function($) {
 			this.inputField.blur(function() {
 				this.focused = false;
 			} );
-			// adding an event handler
+			// adding event handlers
 			this.chatlabel.click({'frame' : this },			
 					this.toggleActive
 			);
+			// and the last step, request a chatframe fill
+			PPPChat.fillRequest.push(this.uid);
 		},
 			messageCounter : 0,
 			chatFrames : [],
@@ -48,7 +50,7 @@ jQuery(document).ready(function($) {
 			uid : Number(host.uid),
 			queue : [],
 			hoverBox: null,
-		
+			fillRequest: [],
 		/**
 		 * Our controller class
 		 */
@@ -60,7 +62,7 @@ jQuery(document).ready(function($) {
 			this.chatsound = new Audio("https://fbstatic-a.akamaihd.net/rsrc.php/yT/r/q-Drar4Ade6.ogg"); 
 			this.messagecounter = 0;
 			this.friendList = [];
-			this.read = [],
+			this.delivered = [],
 			this.friends = host.friend;
 		},
 			/**
@@ -247,14 +249,19 @@ jQuery(document).ready(function($) {
 	 * @param message
 	 */
     PPPChat.chatFrame.prototype.addMessage = function(message) {
+
 		string = '<div class="messagerow" clientid="'+ message.clientid +'">';
 		if (message.sender == this.uid) {
 			string += this.gravatar;
 		}
 		string += '<div class="';
-		if (message.sender == PPPChat.uid) string += 'out';
-		else string += 'in';
-		string += ' pending" clientid="'+ message.clientid+'">' + message.body + '</div></div>';
+		if (message.sender == PPPChat.uid) 
+			string += 'out';
+		else 
+			string += 'in';
+		if (message.serverid == null )
+			string += ' pending';
+		string += '" clientid="'+ message.clientid+'">' + message.body + '</div></div>';
 		this.chathistory.append(string);
 		message.reference = this.chathistory.children('[clientid="'+message.clientid+'"]').last(); // create a reference to the message visual representation
 		message.addHover();
@@ -321,24 +328,25 @@ jQuery(document).ready(function($) {
 		setTimeout(function(){
 			request = controller.buildRequest()
 			controller.sendRequest(request);
-			controller.hasUnread();
 		}, 2000);
 		
 	}
 	
 	PPPChat.controller.prototype.sendRequest = function(request) {
+		console.log('kimenő:');
 		console.log(request);
 			$.ajax({ 
 				context : this,
 				type : 'POST',
 				url : request.url,
 				data : { 
+					fill : request.fill,
 					delivered : request.delivered, // we send back the id's of the messages we got to update
 					action: 'refresh', // DO NOT change it as wp needs this field
-					lastMessageId : this.lastMessageId, // deprecated 
-					messages : request.messages 
+					messages : request.messages  // we assign the messages we sent
 				},			
 				success: function(response) {
+					console.log(response);
 					this.handleResponse(response)
 				},
 				complete: function() { 
@@ -353,6 +361,7 @@ jQuery(document).ready(function($) {
 	 */
 	
 	PPPChat.controller.prototype.handleResponse = function(response) {
+		console.log('bejövő');
 		console.log(response);
 		// if present, foreach the acknowledgements
 		if (response.ack != null) {
@@ -373,33 +382,34 @@ jQuery(document).ready(function($) {
 		if (response.messages != null) {
 			// foreach them
 			response.messages.forEach(function(m){
+				console.log(m);
 				message = new PPPChat.message( // create message objects from them
 						Number(m.sender),
 						Number(m.receiver),
 						m.content,
-						m.serverid,
+						m.clientid,
 						m.sent,
 						new Date().getTime()
 						);
+				message.serverid = m.serverid;
 				// update the last message id
-				
-				this.updateLastMessageId(m.serverid);
+				this.delivered.push(m.serverid); // add it to the delivered messages
 				// find the corresponding friend in the list
 				this.friendList.forEach(function(friend){
 					// look if we got an open frame for it
-					if (friend.id == message.sender) {
+					if (friend.id == message.sender || friend.id == message.receiver) {
 						if (friend.frame == null) {
 							event = { data: {'friend': friend }};
 							this.addChatFrame(event);
 						}
 							friend.chatframe.unread = true; // unread property true
-							this.read.push(m.serverid); // add it to the read messages
+
 							friend.chatframe.addMessage(message); // add the message
 							friend.chatframe.makeActive(); // make that chatframe active
 					}
 				},this);
 			}, this);
-			this.chatsound.play(); // play the sound
+			
 		}
 	}
 		
@@ -414,9 +424,11 @@ jQuery(document).ready(function($) {
 	 */
 	PPPChat.controller.prototype.buildRequest = function() {
 		request = {}; // make the request object
-		request.read = this.read; // assign the read message id's
-		this.read = []; // empty the array
+		request.delivered = this.delivered; // assign the read message id's
+		this.delivered = []; // empty the array
 		request.url = host.url;
+		request.fill = PPPChat.fillRequest; // assign the fill requests
+		PPPChat.fillRequest = []; // empty the array
 		request.messages = [];
 		request.lastmessage = this.lastMessageId;
 		// we got messages to be sent

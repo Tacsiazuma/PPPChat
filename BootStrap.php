@@ -12,6 +12,8 @@
 
 namespace PPPChat;
 
+error_reporting(E_ALL);
+
 use PPPChat\Controller\AjaxController;
 use PPPChat\Controller\HTTPController;
 use PPPChat\Message\MessageMapper;

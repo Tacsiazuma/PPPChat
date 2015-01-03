@@ -10,6 +10,7 @@ class MessageMapper extends AbstractWpMapper {
     
     public function __construct($id) {
         $this->id = $id;
+        $this->results = [];
         
         parent::__construct();
     }
@@ -19,7 +20,7 @@ class MessageMapper extends AbstractWpMapper {
      * @param unknown $lastMessageId
      * @return boolean
      */
-    public function hasUnRead($receiverId, $lastMessageId) {
+    public function hasUnRead($receiverId) {
         global $wpdb;
 
         $querystr = "SELECT $wpdb->posts.* 
@@ -27,7 +28,7 @@ class MessageMapper extends AbstractWpMapper {
     WHERE $wpdb->posts.post_status = 'sent'
     AND $wpdb->posts.post_title = '$receiverId'
     ORDER BY $wpdb->posts.ID DESC";
-        $this->results = $wpdb->get_results($querystr);
+        $this->results = array_merge($this->results, $wpdb->get_results($querystr));
         if (empty($this->results)) return false;
         return true;
     }
@@ -51,22 +52,34 @@ class MessageMapper extends AbstractWpMapper {
     /**
      * Method for the initial messages
      * we gonna get the 50 latest message for the given uid/uid pair
+     * @param int $userid
+     * @param array $friendid
      */
-    
-    /**
-     * We update the messages we read as we send the ack
-     * @param unknown $arrayOfIds
-     * @return boolean
-     */
-    public function updateReadmessages($arrayOfIds) {
+    public function fillRequest($userid, $friend) {
         global $wpdb;
-        $ids = implode(',', $arrayOfIds);
-        $querystr = "UPDATE $wpdb->posts
-        SET $wpdb->posts.post_status = 'delivered'
-        WHERE $wpdb->posts.ID IN ($ids)";
-        $this->results = $wpdb->get_results($querystr);
-        if (empty($this->results)) return false;
-        return true;
+            // get information regarding to the communication
+        $querystr = "SELECT $wpdb->posts.*
+        FROM $wpdb->posts
+        WHERE $wpdb->posts.post_author IN ('$friend','$userid')
+        AND $wpdb->posts.post_title IN ('$friend','$userid')
+        ORDER BY $wpdb->posts.ID DESC
+        LIMIT 50";
+        $this->results = array_merge($this->results, $wpdb->get_results($querystr));
+    }
+    /**
+     * We update the messages to delivered as we send the ack
+     * @param array $arrayOfIds
+     * @return void
+     */
+    public function updateDeliveredMessages($arrayOfIds) {
+        global $wpdb;
+        foreach ($arrayOfIds as $id) {
+            $querystr = "UPDATE $wpdb->posts
+            SET $wpdb->posts.post_status = 'delivered'
+            WHERE $wpdb->posts.ID = '$id'";
+            $wpdb->get_results($querystr);
+        }
+        return;
     }
     
     /**
