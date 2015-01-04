@@ -42,7 +42,7 @@ class AjaxController {
         // to the response ack field
         if (!empty($_POST['messages']))
         foreach ($_POST['messages'] as $message) {
-            $serverid = $this->mapper->saveMessage($user->ID, $message['receiver'], $message['body']);
+            $serverid = $this->mapper->saveMessage($user->ID, mysql_real_escape_string($message['receiver']), mysql_real_escape_string($message['body']));
             $idsToUpdate[] = $serverid;
             $this->response->ack[] = array('clientid' => $message['clientid'], 'serverid' => $serverid);    
         }
@@ -95,9 +95,9 @@ class AjaxController {
     public function sendMessage() {
         $sender = wp_get_current_user()->ID;
         $receiver = (int) $_POST['target'];
-        $message = htmlentities($_POST['message']);
+        $message = $_POST['message'];
         // save the message to the database
-        $id = $this->mapper->saveMessage($sender, $receiver, $message);
+        $id = $this->mapper->saveMessage($sender, $receiver, $message); // they are escaped at the mapper
         // now its time to send back a response
         $this->response->code = 210;
         $this->response->lastMessageId = $id;

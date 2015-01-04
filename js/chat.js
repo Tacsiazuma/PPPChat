@@ -89,6 +89,14 @@ jQuery(document).ready(function($) {
 			this.gravatar = gravatar;
 			this.label = label;
 			this.chatframe = null;
+			// toggle hover class on mousemove
+			this.label.bind('mousemove',{ label : this.label }, function(event){
+				event.data.label.addClass('hover');
+			})
+			// toggle hover class on leaving
+			this.label.bind('mouseout',{ 'label' : this.label }, function(event){
+				event.data.label.removeClass('hover');
+			})
 		},
 
 	}
@@ -107,17 +115,22 @@ jQuery(document).ready(function($) {
 	 * @param friend
 	 */
 	PPPChat.controller.prototype.addFriend = function(friend) {
+		console.log('lefut');
 		this.sidebar.append('<div class="friend" uid="' + Number(friend.uid)
 				+'"><div class="friendpic">' +  friend.profilepic + 
 				'</div><div class="friendname">' + friend.firstname + 
 				' '+ friend.lastname + '</div><div class="onlinemark">'
 				+ friend.onlinemark +'</div></div>');
 		label = $('.friend[uid="'+Number(friend.uid)+ '"]');		
+		// create the friend object
 		friendObject = new PPPChat.Friend(friend.firstname, friend.lastname, friend.uid, friend.profilepic, label);
+	
+		// open a chatframe on click
 		label.click({
 			'friend': friendObject },			
 			this.addChatFrame
 		);
+		
 		this.friendList.push(friendObject);
 	}
 	
@@ -183,7 +196,7 @@ jQuery(document).ready(function($) {
 		frameid = 	PPPChat.chatFrames.length;
 		$('#chatframewrapper').append('<div id="pppchat" frame="'+frameid+'"></div>');
 		reference = $('[frame="'+frameid + '"]');
-		reference.append('<div class="chatlabel">'+ friend.firstname+' '+friend.lastname +'</div>').append('<div class="outercontainer"><div class="history"></div></div>').append('<div class="inputfield"><textarea class="text"></textarea></div>');
+		reference.append('<div class="chatlabel">'+ friend.firstname+' '+friend.lastname +'<div>X</div></div>').append('<div class="outercontainer"><div class="history"></div></div>').append('<div class="inputfield"><textarea class="text"></textarea></div>');
 		chatLabel = reference.children('.chatlabel');
 		chatHistory = chatLabel.next().children('.history');
 		inputField = reference.children('.inputfield').children();
@@ -233,10 +246,11 @@ jQuery(document).ready(function($) {
 	/**
 	 * Add a hover event handler to a message
 	 */
-	PPPChat.message.prototype.addHover = function() {
-		message = this;
+	PPPChat.message.prototype.addHover = function(message) {
+
+
 		this.reference.children().mousemove(function(e){
-			PPPChat.hoverBox.css('display', 'block').css('top', e.clientY +5).css('left', e.clientX+5).html(message.sent);
+			PPPChat.hoverBox.css('display', 'block').css('top', e.clientY +5).css('left', e.clientX+5).text(message);
 		});
 		this.reference.children().mouseout(function(){
 			PPPChat.hoverBox.css('display', 'none');
@@ -249,7 +263,13 @@ jQuery(document).ready(function($) {
 	 * @param message
 	 */
     PPPChat.chatFrame.prototype.addMessage = function(message) {
-
+    	// lets check that we got the message with the serverid first
+    	this.messages.forEach(function(m) {
+    		// if we got it then delete the original one from the list and from the UI
+    		if (m.serverid == message.serverid) {
+    			m.reference.remove();
+    		} 
+    	}, this)
 		string = '<div class="messagerow" clientid="'+ message.clientid +'">';
 		if (message.sender == this.uid) {
 			string += this.gravatar;
@@ -264,7 +284,7 @@ jQuery(document).ready(function($) {
 		string += '" clientid="'+ message.clientid+'">' + message.body + '</div></div>';
 		this.chathistory.append(string);
 		message.reference = this.chathistory.children('[clientid="'+message.clientid+'"]').last(); // create a reference to the message visual representation
-		message.addHover();
+		message.addHover(message.sent);
 		this.messages.push(message);
 		this.chathistory.parent().scrollTop(frame.chathistory.height());
 		this.inputField.val('');
@@ -333,8 +353,6 @@ jQuery(document).ready(function($) {
 	}
 	
 	PPPChat.controller.prototype.sendRequest = function(request) {
-		console.log('kimenő:');
-		console.log(request);
 			$.ajax({ 
 				context : this,
 				type : 'POST',
@@ -346,7 +364,6 @@ jQuery(document).ready(function($) {
 					messages : request.messages  // we assign the messages we sent
 				},			
 				success: function(response) {
-					console.log(response);
 					this.handleResponse(response)
 				},
 				complete: function() { 
@@ -361,8 +378,6 @@ jQuery(document).ready(function($) {
 	 */
 	
 	PPPChat.controller.prototype.handleResponse = function(response) {
-		console.log('bejövő');
-		console.log(response);
 		// if present, foreach the acknowledgements
 		if (response.ack != null) {
 			response.ack.forEach(function(ack) {
@@ -382,7 +397,6 @@ jQuery(document).ready(function($) {
 		if (response.messages != null) {
 			// foreach them
 			response.messages.forEach(function(m){
-				console.log(m);
 				message = new PPPChat.message( // create message objects from them
 						Number(m.sender),
 						Number(m.receiver),
@@ -402,9 +416,7 @@ jQuery(document).ready(function($) {
 							event = { data: {'friend': friend }};
 							this.addChatFrame(event);
 						}
-							friend.chatframe.unread = true; // unread property true
-
-							friend.chatframe.addMessage(message); // add the message
+						    friend.chatframe.addMessage(message); // add the message
 							friend.chatframe.makeActive(); // make that chatframe active
 					}
 				},this);
