@@ -4,6 +4,7 @@ namespace PPPChat\Controller;
 
 use PPPChat\Message\MessageMapper;
 use PPPChat\Ajax\Response;
+use PPPChat\User\UserMapper;
 
 
 class AjaxController {
@@ -11,8 +12,9 @@ class AjaxController {
     private $mapper;
     private $response;
     
-    public function __construct(MessageMapper $mapper, Response $response) {
+    public function __construct(MessageMapper $mapper, UserMapper $user, Response $response) {
         $this->mapper = $mapper;
+        $this->user = $user;
         $this->response = $response;
         
     }
@@ -32,6 +34,11 @@ class AjaxController {
         }
         else 
             $this->longPoll($user);
+        
+        $this->response->friendrequests = $this->user->getRequests();
+        $this->response->code = 204;
+        $this->response->send();
+        
     }
     /**
      * As they sent data we performing a normal poll
@@ -57,21 +64,20 @@ class AjaxController {
         $this->mapper->hasUnRead($user->ID);
         // then fill the messages
         $this->response->messages =  $this->mapper->getResults();
-        $this->response->code = 200;
-        $this->response->send();
+        return;
     }
     /**
      * 
      */
     private function longPoll($user){
         // make it a long poll
-        set_time_limit(20);
+        set_time_limit(12);
         if (!empty($_POST['delivered']))
         $this->mapper->updateDeliveredMessages($_POST['delivered']);
         $tries = 0;
         // try it several times       
 
-        while($tries < 5) {
+        while($tries < 4) {
             $tries++;
             // check whether we got a new message in the database with the given UID
             if ($this->mapper->hasUnRead($user->ID)) {
@@ -84,8 +90,7 @@ class AjaxController {
             sleep(2);
         }
         // we got no message so send back an empty response
-        $this->response->code = 204;
-        $this->response->send();
+        return;
     }
     
     /**

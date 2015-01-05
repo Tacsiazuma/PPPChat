@@ -29,10 +29,11 @@ class UserMapper {
      */
     public function get() {
       $users = get_user_meta($this->id, 'PPPfriends');
+      if (is_array($users)){
       $userobjects = $this->hydrateUsers($users);
-      
-       return $userobjects;
-        
+      return $userobjects;
+      } else 
+          return false; // we have no friends for now
     }
     /**
      * Add a friend (by id) to the specified user (by its id)
@@ -46,8 +47,17 @@ class UserMapper {
             }
     }
     
+    /**
+     * Get new friend requests for the given userid
+     */
+    
+    public function getRequests() {
+        $requests = get_user_meta($this->id, 'PPPfriendRequests');
+        return $this->hydrateUsers($requests);
+    }
     
     private function hydrateUsers($array) {
+        $friends = array();
         foreach ($array as $user) {
             
             $friends[] = new User(get_user_meta($user, 'last_name', true),get_user_meta($user, 'first_name', true),

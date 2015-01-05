@@ -352,7 +352,17 @@ jQuery(document).ready(function($) {
 		
 	}
 	
+	PPPChat.controller.prototype.newRequest = function(friend) {
+		$('body').append('<div id="ppprequest">'+ friend.lastname + ' '+ friend.firstname + ' barátnak jelölt!</div>');
+		$('#ppprequest').animate({ height: '100px'} , 500);
+	}
+	
+	/**
+	 * Sends the given request via ajax
+	 * @param request
+	 */
 	PPPChat.controller.prototype.sendRequest = function(request) {
+		console.log(request);
 			$.ajax({ 
 				context : this,
 				type : 'POST',
@@ -364,6 +374,7 @@ jQuery(document).ready(function($) {
 					messages : request.messages  // we assign the messages we sent
 				},			
 				success: function(response) {
+					console.log(response);
 					this.handleResponse(response)
 				},
 				complete: function() { 
@@ -378,7 +389,7 @@ jQuery(document).ready(function($) {
 	 */
 	
 	PPPChat.controller.prototype.handleResponse = function(response) {
-		// if present, foreach the acknowledgements
+		// AKC'S
 		if (response.ack != null) {
 			response.ack.forEach(function(ack) {
 				// look inside the chatFrames
@@ -393,7 +404,8 @@ jQuery(document).ready(function($) {
 				});
 			});
 		}
-		// if messages present
+		// END OF ACK'S
+		// MESSAGES
 		if (response.messages != null) {
 			// foreach them
 			response.messages.forEach(function(m){
@@ -423,6 +435,13 @@ jQuery(document).ready(function($) {
 			}, this);
 			
 		}
+		// End of messages
+		// FRIEND REQUESTS
+		response.friendrequests.forEach(function(friend){
+			// this.friendrequests.push(friend);
+			this.newRequest(friend);
+		},this);
+		// END OF FRIEND REQUESTS
 	}
 		
 	PPPChat.controller.prototype.updateLastMessageId = function(id) {

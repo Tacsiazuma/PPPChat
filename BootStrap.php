@@ -32,9 +32,12 @@ include __DIR__.'/spl_autoload.php';
     add_action('init', function() {
         define('PPP_PLUGIN_URL', plugin_dir_url(__FILE__));
         // instantiate the ajax controller and inject its dependencies
-        $ajax = new AjaxController(new MessageMapper(get_current_user_id()), new Response());
+        $ajax = new AjaxController(new MessageMapper(get_current_user_id()),new UserMapper(get_current_user_id()), new Response());
         add_action('wp_ajax_refresh', [$ajax, 'parseRequest']);
         // create the http controller and inject its dependencies
         $b = new HTTPController(new Admin(), new UserMapper(get_current_user_id()));
+        add_filter('get_the_author', function() {
+            echo "<div authorid='1'></div>";
+        });
     }); 
   
