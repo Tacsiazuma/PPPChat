@@ -104,6 +104,10 @@ jQuery(document).ready(function($) {
 		},
 
 	}
+	/******************************************************
+	 * CHATFRAME METHODS
+	 *****************************************************/
+	
 	/**
 	 * Set chatFrame focused property
 	 * @param event
@@ -113,30 +117,7 @@ jQuery(document).ready(function($) {
 		frame.focused = event.data.focused;
 	}
 	
-	
-	/**
-	 * Function for adding a friend to the friendlist 
-	 * @param friend
-	 */
-	PPPChat.controller.prototype.addFriend = function(friend) {
-		console.log('lefut');
-		this.sidebar.append('<div class="friend" uid="' + Number(friend.uid)
-				+'"><div class="friendpic">' +  friend.profilepic + 
-				'</div><div class="friendname">' + friend.firstname + 
-				' '+ friend.lastname + '</div><div class="onlinemark">'
-				+ friend.onlinemark +'</div></div>');
-		label = $('.friend[uid="'+Number(friend.uid)+ '"]');		
-		// create the friend object
-		friendObject = new PPPChat.Friend(friend.firstname, friend.lastname, friend.uid, friend.profilepic, label);
-	
-		// open a chatframe on click
-		label.click({
-			'friend': friendObject },			
-			this.addChatFrame
-		);
-		
-		this.friendList.push(friendObject);
-	}
+
 	/**
 	 * Toggle a chatframe to active state
 	 */
@@ -154,15 +135,7 @@ jQuery(document).ready(function($) {
 		}
 			
 	}
-	/**
-	 * We successfully sent a message to get rid of its pending attribute
-	 */
-	PPPChat.message.prototype.successfullySent = function(serverid) {
-		this.serverid = Number(serverid);
-		this.reference.children().removeClass('pending');
-		this.reference.attr('serverid', serverid);
-		this.sent = timeConverter() ;
-	}
+
 	/**
 	 * sort the chathistory depending on serverid
 	 */
@@ -179,90 +152,7 @@ jQuery(document).ready(function($) {
 		}
 	}
 	
-	/**
-	 * Adds a chatframe to the UI by the given friend object
-	 * Initially fills the chathistory object with a preloader and requests
-	 * messages via ajax to fill it. 
-	 * @param event
-	 */
-	
-	PPPChat.controller.prototype.addChatFrame = function(event) {
-		friend = event.data.friend;
-		// check if we got the maximum number of chatframes
-		if (PPPChat.chatFrames.length < PPPChat.maxChatFrames) {
-			// if we aint got, then check if we got the chatframe for this uid
-			for (x = 0; x < PPPChat.chatFrames.length; x++) {
-				frame = PPPChat.chatFrames[x];
-				// if we got it then make this frame active then return from this function
-				if (Number(frame.uid) == Number(friend.id)) {
-					frame.makeActive();
-					return false;
-				}
-			}
-		frameid = 	PPPChat.chatFrames.length;
-		$('#chatframewrapper').append('<div id="pppchat" frame="'+frameid+'"></div>');
-		reference = $('[frame="'+frameid + '"]');
-		reference.append('<div class="chatlabel">'+ friend.firstname+' '+friend.lastname +'<div>X</div></div>').append('<div class="outercontainer"><div class="history"></div></div>').append('<div class="inputfield"><textarea class="text"></textarea></div>');
-		chatLabel = reference.children('.chatlabel');
-		chatHistory = chatLabel.next().children('.history');
-		inputField = reference.children('.inputfield').children();
-		
-		frame = new PPPChat.chatFrame(frameid, // the given frame id
-				friend.id, // uid of the friend
-				friend.firstname+ ' '+ friend.lastname, //name of the friend
-				reference, // reference to the frame root
-				chatLabel, // reference to the chatlabel
-				chatHistory, // reference to the chathistory
-				inputField, // reference to the textarea
-				friend.gravatar); // gravatar of the friend
-		PPPChat.chatFrames.push(frame); // add it the chatframes
-		friend.chatframe = frame;
-		}
-	}
-	/**
-	 * The flashing document title regarding to an unread message
-	 */
-	PPPChat.controller.prototype.hasUnread = function() {
-		
-	}
-	
-	
-	/**
-	 * Initialize the plugin
-	 * Create the sidebar, then fill it with friends got by json headscript
-	 * Then create the chatframewrapper and start the background process
-	 */
-	PPPChat.controller.prototype.init = function() {
-		// build up the sidebar
-		$('body').append('<div id="chatsidebar"></div>');
-		this.sidebar = $('#chatsidebar');
-		this.sidebar.append('<div id="sidebaranchor"><div id="searchbar"><input id="searchfield" type="text"></div><div id="sidebaroptions"></div></div>');
-		$('body').append('<div id="pppchathover"></div>');
-		PPPChat.hoverBox = $('#pppchathover');
-		if (host.friend != null) {
-        this.friends.forEach(function(friend){
-        	this.addFriend(friend);
-        	}, this);
-		}
-  
-        $('body').append("<div id=\"chatframewrapper\"></div>");
-		this.wrapper = $('#chatframewrapper');
-		PPPChat.controller.background(this); // we start the background process
-	}
-	
-	/**
-	 * Add a hover event handler to a message
-	 */
-	PPPChat.message.prototype.addHover = function(message) {
 
-
-		this.reference.children().mousemove(function(e){
-			PPPChat.hoverBox.css('display', 'block').css('top', e.clientY +5).css('left', e.clientX+5).text(message);
-		});
-		this.reference.children().mouseout(function(){
-			PPPChat.hoverBox.css('display', 'none');
-		});
-	}
 	
 	
 	/**
@@ -348,6 +238,10 @@ jQuery(document).ready(function($) {
 			}
 		});
 	}
+	/**********************************************************
+	 * CONTROLLER METHODS
+	 **********************************************************/
+	
 	/**
 	 * The background process
 	 */
@@ -516,6 +410,165 @@ jQuery(document).ready(function($) {
 		return request;
 	}
 	
+	/**
+	 * Function for adding a friend to the friendlist 
+	 * @param friend
+	 */
+	PPPChat.controller.prototype.addFriend = function(friend) {
+		console.log('lefut');
+		this.sidebar.append('<div class="friend" uid="' + Number(friend.uid)
+				+'"><div class="friendpic">' +  friend.profilepic + 
+				'</div><div class="friendname">' + friend.firstname + 
+				' '+ friend.lastname + '</div><div class="onlinemark">'
+				+ friend.onlinemark +'</div></div>');
+		label = $('.friend[uid="'+Number(friend.uid)+ '"]');		
+		// create the friend object
+		friendObject = new PPPChat.Friend(friend.firstname, friend.lastname, friend.uid, friend.profilepic, label);
+	
+		// open a chatframe on click
+		label.click({
+			'friend': friendObject },			
+			this.addChatFrame
+		);
+		
+		this.friendList.push(friendObject);
+	}
+	/**
+	 * Adds a chatframe to the UI by the given friend object
+	 * Initially fills the chathistory object with a preloader and requests
+	 * messages via ajax to fill it. 
+	 * @param event
+	 */
+	
+	PPPChat.controller.prototype.addChatFrame = function(event) {
+		friend = event.data.friend;
+		// check if we got the maximum number of chatframes
+		if (PPPChat.chatFrames.length < PPPChat.maxChatFrames) {
+			// if we aint got, then check if we got the chatframe for this uid
+			for (x = 0; x < PPPChat.chatFrames.length; x++) {
+				frame = PPPChat.chatFrames[x];
+				// if we got it then make this frame active then return from this function
+				if (Number(frame.uid) == Number(friend.id)) {
+					frame.makeActive();
+					return false;
+				}
+			}
+		frameid = 	PPPChat.chatFrames.length;
+		$('#chatframewrapper').append('<div id="pppchat" frame="'+frameid+'"></div>');
+		reference = $('[frame="'+frameid + '"]');
+		reference.append('<div class="chatlabel">'+ friend.firstname+' '+friend.lastname +'<div>X</div></div>').append('<div class="outercontainer"><div class="history"></div></div>').append('<div class="inputfield"><textarea class="text"></textarea></div>');
+		chatLabel = reference.children('.chatlabel');
+		chatHistory = chatLabel.next().children('.history');
+		inputField = reference.children('.inputfield').children();
+		
+		frame = new PPPChat.chatFrame(frameid, // the given frame id
+				friend.id, // uid of the friend
+				friend.firstname+ ' '+ friend.lastname, //name of the friend
+				reference, // reference to the frame root
+				chatLabel, // reference to the chatlabel
+				chatHistory, // reference to the chathistory
+				inputField, // reference to the textarea
+				friend.gravatar); // gravatar of the friend
+		PPPChat.chatFrames.push(frame); // add it the chatframes
+		friend.chatframe = frame;
+		}
+	}
+	/**
+	 * The flashing document title regarding to an unread message
+	 */
+	PPPChat.controller.prototype.hasUnread = function() {
+		
+	}
+	
+	
+	/**
+	 * Initialize the plugin
+	 * Create the sidebar, then fill it with friends got by json headscript
+	 * Then create the chatframewrapper and start the background process
+	 */
+	PPPChat.controller.prototype.init = function() {
+		// build up the sidebar
+		$('body').append('<div id="chatsidebar"></div>');
+		this.sidebar = $('#chatsidebar');
+		this.sidebar.append('<div id="sidebaranchor"><div id="searchbar"><input id="searchfield" type="text"></div><div id="sidebaroptions"><img src="trolo" /></div></div>');
+		$('body').append('<div id="pppchathover"></div>');
+		// adding an event handler to open menu
+		$('#sidebaroptions').click({ 'controller' : this}, function(event) {
+			
+			event.data.controller.showMenu();
+		});
+		// assigning the hoverbox
+		PPPChat.hoverBox = $('#pppchathover');
+		// filling up the friendlist
+		if (host.friend != null) {
+        this.friends.forEach(function(friend){
+        	this.addFriend(friend);
+        	}, this);
+		}
+		// creating the menu
+		string = '<div id="cover"></div><div id="menu"><div class="menulabel">'+
+		'<div class="menutitle">Beállítások</div><div id="exitmenu">X</div><select>';
+		this.skins.forEach(function(skin){
+			string+= '<option value="'+ skin.code+'">'+skin.name+'</option>';
+		});
+		string +='</select></div></div>';
+		$('body').append(string);
+				
+				
+		PPPChat.menu = $('#menu');
+		PPPChat.cover = $('#cover');
+		// adding an event handler to hide it
+		$('#exitmenu').click({'controller': this },function(event){
+			event.data.controller.hideMenu()
+		});
+		// adding the chatframe wrapper
+        $('body').append("<div id=\"chatframewrapper\"></div>");
+		this.wrapper = $('#chatframewrapper');
+		PPPChat.controller.background(this); // we start the background process
+	}
+	
+	/**
+	 *  The menu to setup the chat application client side
+	 */
+	PPPChat.controller.prototype.showMenu = function(event) {
+		PPPChat.cover.show();
+		PPPChat.menu.show()
+
+	}
+	/**
+	 *  Hide the menu
+	 */
+	PPPChat.controller.prototype.hideMenu = function() {
+		PPPChat.cover.hide();
+		PPPChat.menu.hide();
+	}
+	
+	
+	/****************************************************************
+	 * MESSAGE METHODS
+	 ***************************************************************/
+ 	/**
+	 * Add a hover event handler to a message
+	 */
+	PPPChat.message.prototype.addHover = function(message) {
+
+
+		this.reference.children().mousemove(function(e){
+			PPPChat.hoverBox.css('display', 'block').css('top', e.clientY +5).css('left', e.clientX+5).text(message);
+		});
+		this.reference.children().mouseout(function(){
+			PPPChat.hoverBox.css('display', 'none');
+		});
+	}
+	/**
+	 * We successfully sent a message to get rid of its pending attribute
+	 */
+	PPPChat.message.prototype.successfullySent = function(serverid) {
+		this.serverid = Number(serverid);
+		this.reference.children().removeClass('pending');
+		this.reference.attr('serverid', serverid);
+		this.sent = timeConverter() ;
+	}
 	/**
 	 * Some helper function
 	 */
