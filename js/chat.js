@@ -1,6 +1,9 @@
 // now we can use dollar function
 jQuery(document).ready(function($) {
 	// create the namespace
+	var appname = "PPPChat";
+	
+	
 	var PPPChat = {
 		/**
 		 * A chatframe object
@@ -43,17 +46,6 @@ jQuery(document).ready(function($) {
 			);
 			// and the last step, request a chatframe fill
 			PPPChat.fillRequest.push(this.uid);
-			// add the prototype functions
-			prototype = {
-					/**
-					 * Set chatFrame focused property
-					 * @param event
-					 */
-					focused : function(event) {
-						frame = event.data.frame;
-						frame.focused = event.data.focused;
-					}
-			}
 		},
 			messageCounter : 0,
 			chatFrames : [],
@@ -75,17 +67,7 @@ jQuery(document).ready(function($) {
 			this.friendList = [];
 			this.delivered = [],
 			this.friends = host.friend;
-			// add the prototype functions
-			prototype = {
-					/**
-					 * We got a new friendrequest so show the notification
-					 * @param friend
-					 */
-					newRequest : function(friend) {
-						$('body').append('<div id="ppprequest">'+ friend.lastname + ' '+ friend.firstname + ' barátnak jelölt!</div>');
-						$('#ppprequest').animate({ height: '100px'} , 500);
-					}
-			}
+			this.friendRequests = [];
 		},
 			/**
 			 * The message object
@@ -99,10 +81,6 @@ jQuery(document).ready(function($) {
 			this.clientid = clientid,
 			this.serverid = null;
 			this.reference = null;
-			// add the prototype functions
-			prototype = {
-					
-			}
 		},
 			
 		/**
@@ -123,14 +101,17 @@ jQuery(document).ready(function($) {
 			this.label.bind('mouseout',{ 'label' : this.label }, function(event){
 				event.data.label.removeClass('hover');
 			})
-			// add the prototype functions
-			prototype = {
-				
-			}
 		},
 
 	}
-
+	/**
+	 * Set chatFrame focused property
+	 * @param event
+	 */
+	PPPChat.chatFrame.prototype.focused = function(event) {
+		frame = event.data.frame;
+		frame.focused = event.data.focused;
+	}
 	
 	
 	/**
@@ -156,7 +137,9 @@ jQuery(document).ready(function($) {
 		
 		this.friendList.push(friendObject);
 	}
-	
+	/**
+	 * Toggle a chatframe to active state
+	 */
 	PPPChat.chatFrame.prototype.toggleActive = function(event) {
 		frame = event.data.frame;
 		if (frame.active == true) { 
@@ -253,6 +236,7 @@ jQuery(document).ready(function($) {
 		// build up the sidebar
 		$('body').append('<div id="chatsidebar"></div>');
 		this.sidebar = $('#chatsidebar');
+		this.sidebar.append('<div id="sidebaranchor"><div id="searchbar"><input id="searchfield" type="text"></div><div id="sidebaroptions"></div></div>');
 		$('body').append('<div id="pppchathover"></div>');
 		PPPChat.hoverBox = $('#pppchathover');
 		if (host.friend != null) {
@@ -289,27 +273,28 @@ jQuery(document).ready(function($) {
     	// lets check that we got the message with the serverid first
     	this.messages.forEach(function(m) {
     		// if we got it then delete the original one from the list and from the UI
-    		if (m.serverid != null && m.serverid == message.serverid) {
+    		if (message.serverid != null && m.serverid == message.serverid) {
     			m.reference.remove();
     		} 
     	}, this)
-		string = '<div class="messagerow" clientid="'+ message.clientid +'">';
+    	// start building the visual representation of the message
+		string = '<div class="messagerow" clientid="'+ message.clientid +'">'; // it will be inside a message row to avoid overlapping
 		if (message.sender == this.uid) {
-			string += this.gravatar;
+			string += this.gravatar; // if the senders ID equals the friend ID then display the avatar
 		}
 		string += '<div class="';
 		if (message.sender == PPPChat.uid) 
 			string += 'out';
 		else 
 			string += 'in';
-		if (message.serverid == null )
-			string += ' pending';
+		if (message.serverid == null ) // if we aint got serverid for the message (so we sent it and no ack received yet)
+			string += ' pending'; // this attribute makes it to look a bit opaque
 		string += '" clientid="'+ message.clientid+'">' + message.body + '</div></div>';
-		this.chathistory.append(string);
+		this.chathistory.append(string); // append it to the history div
 		message.reference = this.chathistory.children('[clientid="'+message.clientid+'"]').last(); // create a reference to the message visual representation
-		message.addHover(message.sent);
-		this.messages.push(message);
-		this.chathistory.parent().scrollTop(frame.chathistory.height());
+		message.addHover(message.sent); // add hover event handler
+		this.messages.push(message); // push it to the chatframes message stack
+		this.chathistory.parent().scrollTop(frame.chathistory.height()); 
 		this.inputField.val('');
 	}
     /**
@@ -326,7 +311,7 @@ jQuery(document).ready(function($) {
 	 */
 	PPPChat.chatFrame.prototype.keypress = function(event) {
 		if (event.which == 13) {
-			event.data.frame.addToQueue();
+			event.data.frame.addToQueue(); // add it to the queue
 		}
 	}
 	/**
@@ -374,7 +359,43 @@ jQuery(document).ready(function($) {
 		}, 2000);
 		
 	}
+	
+	PPPChat.controller.prototype.newRequest = function(friend) {
+		inarray = false;
+		this.friendRequests.forEach(function(f){
+			if (f.uid == friend.uid) inarray = true;
+		});
+		if (inarray == false) {
+		$('body').append('<div id="ppprequest">'+ friend.lastname + ' '+ friend.firstname + ' barátnak jelölt!</div>');
+		$('#ppprequest').animate({ height: '100px'} , 500);
+		this.friendRequests.push(friend); // push it to the friendrequests
+		var options = {
+                body: friend.lastname + ' '+ friend.firstname + ' barátnak jelölt!',
+                icon: "icon.jpg",
+                dir : "ltr"
+             };
+			  if (!("Notification" in window)) {
+			    alert("This browser does not support desktop notification");
+			  }
+			  else if (Notification.permission === "granted") {
+			        
+			          var notification = new Notification(appname,options);
+			  }
+			  else if (Notification.permission !== 'denied') {
+			    Notification.requestPermission(function (permission) {
+			      if (!('permission' in Notification)) {
+			        Notification.permission = permission;
+			      }
+			    
+			      if (permission === "granted") {
+			        var notification = new Notification(appname,options);
+			      }
+			    });
+			  }
+			}
 
+		
+	}
 	
 	/**
 	 * Sends the given request via ajax
@@ -457,7 +478,6 @@ jQuery(document).ready(function($) {
 		// End of messages
 		// FRIEND REQUESTS
 		response.friendrequests.forEach(function(friend){
-			// this.friendrequests.push(friend);
 			this.newRequest(friend);
 		},this);
 		// END OF FRIEND REQUESTS

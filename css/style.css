@@ -215,12 +215,37 @@
 	width:32px;
 	height:32px;
 }
+#sidebaranchor {
+	position:absolute;
+	bottom:0;
+	height:30px;
+	width:100%;
+	background-color:#fff;
+	border-top:1px solid #ccc;
+}
 
+#searchbar {
+	float:left;
+	height:30px;
+	width:149px;
+	padding: 3px 3px 3px 3px;
+	
+}
+#searchfield {
+	font-size:12px;
+	background-color:#fff;
+	border:none;
+}
+#sidebaroptions {
+	float:right;
+	width:55px;
+	height:30px;
+}
 /* Sidebar end */
 
 #pppchat textarea  {
 	width:80%;
-	outline:none;
+	border:none;
 	height:28px;
 	overflow:hidden;
 	resize:none;
@@ -249,12 +274,16 @@
 	color:#000;
 	border-top: 1px solid #c9d0da;
 	height:30px;
+
 	background-color:#f6f7f8;
 	width:160px;
 }
 .chatlabel.active {
 	border-top: 1px solid #2e4588;
-	background-color:#627aad;
+	background-color:#6d84b4;
 	width:240px;
 	color:#fff;
+}
+.chatlabel.active:hover {
+	background-color:#627aad;
 }

@@ -12,7 +12,7 @@ namespace PPPChat\User;
  */
 
 class User {
-    public $fristname, $lastname, $profilepic, $uid, $onlinemark;
+    public $firstname, $lastname, $profilepic, $uid, $onlinemark;
     
     public function __construct($firstname,$lastname, $uid, $profilepic, $onlinemark) {
         $this->firstname = $firstname;
