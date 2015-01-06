@@ -43,6 +43,17 @@ jQuery(document).ready(function($) {
 			);
 			// and the last step, request a chatframe fill
 			PPPChat.fillRequest.push(this.uid);
+			// add the prototype functions
+			prototype = {
+					/**
+					 * Set chatFrame focused property
+					 * @param event
+					 */
+					focused : function(event) {
+						frame = event.data.frame;
+						frame.focused = event.data.focused;
+					}
+			}
 		},
 			messageCounter : 0,
 			chatFrames : [],
@@ -64,6 +75,17 @@ jQuery(document).ready(function($) {
 			this.friendList = [];
 			this.delivered = [],
 			this.friends = host.friend;
+			// add the prototype functions
+			prototype = {
+					/**
+					 * We got a new friendrequest so show the notification
+					 * @param friend
+					 */
+					newRequest : function(friend) {
+						$('body').append('<div id="ppprequest">'+ friend.lastname + ' '+ friend.firstname + ' barátnak jelölt!</div>');
+						$('#ppprequest').animate({ height: '100px'} , 500);
+					}
+			}
 		},
 			/**
 			 * The message object
@@ -77,6 +99,10 @@ jQuery(document).ready(function($) {
 			this.clientid = clientid,
 			this.serverid = null;
 			this.reference = null;
+			// add the prototype functions
+			prototype = {
+					
+			}
 		},
 			
 		/**
@@ -97,17 +123,14 @@ jQuery(document).ready(function($) {
 			this.label.bind('mouseout',{ 'label' : this.label }, function(event){
 				event.data.label.removeClass('hover');
 			})
+			// add the prototype functions
+			prototype = {
+				
+			}
 		},
 
 	}
-	/**
-	 * Set chatFrame focused property
-	 * @param event
-	 */
-	PPPChat.chatFrame.prototype.focused = function(event) {
-		frame = event.data.frame;
-		frame.focused = event.data.focused;
-	}
+
 	
 	
 	/**
@@ -266,7 +289,7 @@ jQuery(document).ready(function($) {
     	// lets check that we got the message with the serverid first
     	this.messages.forEach(function(m) {
     		// if we got it then delete the original one from the list and from the UI
-    		if (m.serverid == message.serverid) {
+    		if (m.serverid != null && m.serverid == message.serverid) {
     			m.reference.remove();
     		} 
     	}, this)
@@ -351,11 +374,7 @@ jQuery(document).ready(function($) {
 		}, 2000);
 		
 	}
-	
-	PPPChat.controller.prototype.newRequest = function(friend) {
-		$('body').append('<div id="ppprequest">'+ friend.lastname + ' '+ friend.firstname + ' barátnak jelölt!</div>');
-		$('#ppprequest').animate({ height: '100px'} , 500);
-	}
+
 	
 	/**
 	 * Sends the given request via ajax
