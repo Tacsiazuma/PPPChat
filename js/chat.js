@@ -1,6 +1,9 @@
 // now we can use dollar function
 jQuery(document).ready(function($) {
 	// create the namespace
+	var appname = "PPPChat";
+	
+	
 	var PPPChat = {
 		/**
 		 * A chatframe object
@@ -22,6 +25,7 @@ jQuery(document).ready(function($) {
 			this.reference = reference;
 			this.chatlabel = chatlabel;
 			this.chathistory = history;
+			this.hasUnread = false;
 			this.inputField = inputfield;
 			this.gravatar = gravatar;
 			this.focused = false;
@@ -31,34 +35,39 @@ jQuery(document).ready(function($) {
 			);
 			this.inputField.focus(function() {
 				this.focused = true;
+				this.hasUnread = false; // we focused on the chatframe so turn off the unread message alert
 			} );
 			this.inputField.blur(function() {
 				this.focused = false;
 			} );
-			// adding an event handler
+			// adding event handlers
 			this.chatlabel.click({'frame' : this },			
 					this.toggleActive
 			);
+			// and the last step, request a chatframe fill
+			PPPChat.fillRequest.push(this.uid);
 		},
 			messageCounter : 0,
 			chatFrames : [],
 			maxChatFrames : 3,
 			uid : Number(host.uid),
 			queue : [],
-		
+			hoverBox: null,
+			fillRequest: [],
 		/**
 		 * Our controller class
 		 */
-		controller : function(ajax) {
+		controller : function() {
+			this.url = host.url;
+			this.lastMessageId = 0;
 			// constructor
-			this.ajax = ajax;
 			this.siteTitle = document.title;
 			this.chatsound = new Audio("https://fbstatic-a.akamaihd.net/rsrc.php/yT/r/q-Drar4Ade6.ogg"); 
-			this.lastMessageId = 0;
 			this.messagecounter = 0;
 			this.friendList = [];
+			this.delivered = [],
 			this.friends = host.friend;
-			console.log('Controller created');
+			this.friendRequests = [];
 		},
 			/**
 			 * The message object
@@ -73,22 +82,32 @@ jQuery(document).ready(function($) {
 			this.serverid = null;
 			this.reference = null;
 		},
-		Ajax : function(url) {
-			this.url = url;
-			console.log('Ajax created');
-		},	
+			
 		/**
 		 *  The friend object
 		 */
-		Friend : function(firstname,lastname, id, profileicon, label) {
+		Friend : function(firstname,lastname, id, gravatar, label) {
 			this.firstname = firstname;
 			this.lastname = lastname;
 			this.id = id;
-			this.profileicon = profileicon;
+			this.gravatar = gravatar;
 			this.label = label;
+			this.chatframe = null;
+			// toggle hover class on mousemove
+			this.label.bind('mousemove',{ label : this.label }, function(event){
+				event.data.label.addClass('hover');
+			})
+			// toggle hover class on leaving
+			this.label.bind('mouseout',{ 'label' : this.label }, function(event){
+				event.data.label.removeClass('hover');
+			})
 		},
 
 	}
+	/******************************************************
+	 * CHATFRAME METHODS
+	 *****************************************************/
+	
 	/**
 	 * Set chatFrame focused property
 	 * @param event
@@ -98,25 +117,10 @@ jQuery(document).ready(function($) {
 		frame.focused = event.data.focused;
 	}
 	
-	
+
 	/**
-	 * Function for adding a friend to the friendlist 
-	 * @param friend
+	 * Toggle a chatframe to active state
 	 */
-	PPPChat.controller.prototype.addFriend = function(friend) {
-		this.sidebar.append('<div class="friend" uid="' + friend.uid
-				+'"><div class="friendpic">' +  friend.profilepic + 
-				'</div><div class="friendname">' + friend.firstname + 
-				' '+ friend.lastname + '</div><div class="onlinemark">'
-				+ friend.onlinemark +'</div></div>');
-		label = $('.friend[uid="'+friend.uid+ '"]');
-		friendObject = new PPPChat.Friend(friend.firstname, friend.lastname, friend.uid, friend.profileicon, label);
-		label.click({'friend': friendObject },			
-			this.addChatFrame
-		);
-		this.friendList.push(friendObject);
-	}
-	
 	PPPChat.chatFrame.prototype.toggleActive = function(event) {
 		frame = event.data.frame;
 		if (frame.active == true) { 
@@ -131,64 +135,24 @@ jQuery(document).ready(function($) {
 		}
 			
 	}
-	
+
 	/**
-	 * Adds a chatframe to the UI
-	 * @param event
+	 * sort the chathistory depending on serverid
 	 */
-	
-	PPPChat.controller.prototype.addChatFrame = function(event) {
-		friend = event.data.friend;
-		// check if we got the maximum number of chatframes
-		if (PPPChat.chatFrames.length < PPPChat.maxChatFrames) {
-			// if we aint got, then check if we got the chatframe for this uid
-			for (x = 0; x < PPPChat.chatFrames.length; x++) {
-				frame = PPPChat.chatFrames[x];
-				// if we got it then make this frame active then return from this function
-				if (Number(frame.uid) == Number(friend.id)) {
-					frame.makeActive();
-					return false;
-				}
-			}
-		frameid = 	PPPChat.chatFrames.length;
-		$('#chatframewrapper').append('<div id="pppchat" frame="'+frameid+'"></div>');
-		reference = $('[frame="'+frameid + '"]');
-		reference.append('<div class="chatlabel" uid="'+ friend.uid +'">'+ friend.firstname+' '+friend.lastname +'</div>').append('<div class="outercontainer"><div class="history" uid="'+ friend.uid +'"></div></div>').append('<div class="inputfield" uid="'+ friend.uid +'"><textarea class="text"></textarea></div>');
-		chatLabel = reference.children('.chatlabel');
-		chatHistory = chatLabel.next().children('.history');
-		inputField = reference.children('.inputfield').children();
-		
-		frame = new PPPChat.chatFrame(frameid, // the given frame id
-				friend.id, // uid of the friend
-				friend.firstname+ ' '+ friend.lastname, //name of the friend
-				reference, // reference to the frame root
-				chatLabel, // reference to the chatlabel
-				chatHistory, // reference to the chathistory
-				inputField, // reference to the textarea
-				friend.gravatar); // gravatar of the friend
-		PPPChat.chatFrames.push(frame); // add it the chatframes
-		}
-	}
-	/**
-	 * Initialize the plugin
-	 * Create the sidebar, then fill it with friends got by json headscript
-	 * Then create the chatframewrapper and start the background process
-	 */
-	PPPChat.controller.prototype.init = function() {
-		// build up the sidebar
-		$('body').append('<div id="chatsidebar"></div>');
-		this.sidebar = $('#chatsidebar');
-		if (host.friend != null) {
-        this.friends.forEach(function(friend){
-        	this.addFriend(friend);
-        	}, this);
-		}
-  
-        $('body').append("<div id=\"chatframewrapper\"></div>");
-		this.wrapper = $('#chatframewrapper');
-		this.background(); // we start the background process
+	PPPChat.chatFrame.prototype.sortContent = function() {
+		console.log(this.chathistory.children().sort(sortMessageRows));
 	}
 	
+	function sortMessageRows(a, b) {
+		console.log(a);
+		if (a.attr('serverid') < b.attr('serverid')) {
+			return -1;
+		} else {
+			return 1;
+		}
+	}
+	
+
 	
 	
 	/**
@@ -196,14 +160,31 @@ jQuery(document).ready(function($) {
 	 * @param message
 	 */
     PPPChat.chatFrame.prototype.addMessage = function(message) {
-		string = '<div class="messagerow" clientid="'+message.clientid+'"><div class="';
-		if (message.sender == PPPChat.uid) string += 'out';
-		else string += 'in';
+    	// lets check that we got the message with the serverid first
+    	this.messages.forEach(function(m) {
+    		// if we got it then delete the original one from the list and from the UI
+    		if (message.serverid != null && m.serverid == message.serverid) {
+    			m.reference.remove();
+    		} 
+    	}, this)
+    	// start building the visual representation of the message
+		string = '<div class="messagerow" clientid="'+ message.clientid +'">'; // it will be inside a message row to avoid overlapping
+		if (message.sender == this.uid) {
+			string += this.gravatar; // if the senders ID equals the friend ID then display the avatar
+		}
+		string += '<div class="';
+		if (message.sender == PPPChat.uid) 
+			string += 'out';
+		else 
+			string += 'in';
+		if (message.serverid == null ) // if we aint got serverid for the message (so we sent it and no ack received yet)
+			string += ' pending'; // this attribute makes it to look a bit opaque
 		string += '" clientid="'+ message.clientid+'">' + message.body + '</div></div>';
-		this.chathistory.append(string);
-		message.reference = this.chathistory.children('[clientid="'+message.clientid+'"]'); // create a reference to the message visual representation
-		this.messages.push(message);
-		this.chathistory.parent().scrollTop(frame.chathistory.height());
+		this.chathistory.append(string); // append it to the history div
+		message.reference = this.chathistory.children('[clientid="'+message.clientid+'"]').last(); // create a reference to the message visual representation
+		message.addHover(message.sent); // add hover event handler
+		this.messages.push(message); // push it to the chatframes message stack
+		this.chathistory.parent().scrollTop(frame.chathistory.height()); 
 		this.inputField.val('');
 	}
     /**
@@ -220,7 +201,7 @@ jQuery(document).ready(function($) {
 	 */
 	PPPChat.chatFrame.prototype.keypress = function(event) {
 		if (event.which == 13) {
-			event.data.frame.addToQueue();
+			event.data.frame.addToQueue(); // add it to the queue
 		}
 	}
 	/**
@@ -231,7 +212,7 @@ jQuery(document).ready(function($) {
 		if (this.inputField.val().trim() == '') return;
 		// generate a message object
 		message = new PPPChat.message(PPPChat.uid,	// sender uid
-				  this.uid, // target uid
+				  Number(this.uid), // target uid
 				  this.inputField.val(), // the message to be sent
 				  PPPChat.messageCounter,	// the client id
 				  new Date().getTime()); // and the timestamp
@@ -257,99 +238,361 @@ jQuery(document).ready(function($) {
 			}
 		});
 	}
+	/**********************************************************
+	 * CONTROLLER METHODS
+	 **********************************************************/
+	
 	/**
 	 * The background process
 	 */
-	PPPChat.controller.prototype.background = function() {
-		controller = this; // define the controller to be used inside settimeout
-		// every 5 seconds it will gather data to be sent, then send a request
-		controller.ajax.sendMessage(controller, controller.buildRequest());	 
+	PPPChat.controller.background = function(controller) {
+		// every 2 seconds it will gather data to be sent, then send a request	 
+		setTimeout(function(){
+			request = controller.buildRequest()
+			controller.sendRequest(request);
+		}, 2000);
+		
 	}
 	
-	PPPChat.Ajax.prototype.sendMessage = function(controller, request) {
-		setTimeout(function(){
+	PPPChat.controller.prototype.newRequest = function(friend) {
+		inarray = false;
+		this.friendRequests.forEach(function(f){
+			if (f.uid == friend.uid) inarray = true;
+		});
+		if (inarray == false) {
+		$('body').append('<div id="ppprequest">'+ friend.lastname + ' '+ friend.firstname + ' barátnak jelölt!</div>');
+		$('#ppprequest').animate({ height: '100px'} , 500);
+		this.friendRequests.push(friend); // push it to the friendrequests
+		var options = {
+                body: friend.lastname + ' '+ friend.firstname + ' barátnak jelölt!',
+                icon: "icon.jpg",
+                dir : "ltr"
+             };
+			  if (!("Notification" in window)) {
+			    alert("This browser does not support desktop notification");
+			  }
+			  else if (Notification.permission === "granted") {
+			        
+			          var notification = new Notification(appname,options);
+			  }
+			  else if (Notification.permission !== 'denied') {
+			    Notification.requestPermission(function (permission) {
+			      if (!('permission' in Notification)) {
+			        Notification.permission = permission;
+			      }
+			    
+			      if (permission === "granted") {
+			        var notification = new Notification(appname,options);
+			      }
+			    });
+			  }
+			}
+
+		
+	}
+	
+	/**
+	 * Sends the given request via ajax
+	 * @param request
+	 */
+	PPPChat.controller.prototype.sendRequest = function(request) {
+		console.log(request);
 			$.ajax({ 
+				context : this,
 				type : 'POST',
-				url : controller.ajax.url,
+				url : request.url,
 				data : { 
-					action: 'refresh',
-					lastMessageId : Number(controller.lastMessageId),
-					messages : request.messages 
+					fill : request.fill,
+					delivered : request.delivered, // we send back the id's of the messages we got to update
+					action: 'refresh', // DO NOT change it as wp needs this field
+					messages : request.messages  // we assign the messages we sent
 				},			
 				success: function(response) {
-					controller.handleResponse(response)
+					console.log(response);
+					this.handleResponse(response)
 				},
-				complete: controller.background,
+				complete: function() { 
+					PPPChat.controller.background(this) },
 				dataType: 'json' }
 			)
-		}, 3000);
 	}
 	
 	/**
 	 * Handles the response from the server
+	 * @param response
 	 */
+	
 	PPPChat.controller.prototype.handleResponse = function(response) {
+		// AKC'S
 		if (response.ack != null) {
 			response.ack.forEach(function(ack) {
-				$('[clientid="'+ack.clientid+'"]').attr('serverid', ack.serverid);
-				$('[clientid="'+ack.clientid+'"]').removeAttr('clientid', 1000 );
-			});
-		}
-		if (response.messages != null) {
-			response.messages.forEach(function(message){
-				// find the corresponding frame
-				this.updateLastMessageId(message.serverid);
-				
-				PPPChat.chatFrames.forEach(function(frame){
-					// found the frame
-					if (frame.uid == message.sender) {
-						string = '<div class="messagerow" serverid="'+message.serverid+'"><img src="'+frame.gravatar+'"><div class="in" serverid="' + message.serverid +'">' + message.content + '</div></div>';
-						// iterate through the message rows
-						frame.chathistory.children('.messagerow').each(function() {
-							// if the serverid of the given row is bigger, then insert it before the element
-							// otherwise go on
-							if ($(this).attr('serverid') > message.serverid) {
-								$(this).before(string);
-								return false; // exit the foreach
-							}
-								
-						});
-						frame.chathistory.append(string);
-					}
+				// look inside the chatFrames
+				PPPChat.chatFrames.forEach(function(frame) {
+					frame.messages.forEach(function(message){
+						if (Number(ack.clientid) == Number(message.clientid)) {
+							message.successfullySent(ack.serverid);
+						}
+						
+					})
 					
 				});
-				// or open a new one
-			}, this);
-			this.chatsound.play(); // play the sound
+			});
 		}
-		this.background();
-	};
-	
+		// END OF ACK'S
+		// MESSAGES
+		if (response.messages != null) {
+			// foreach them
+			response.messages.forEach(function(m){
+				message = new PPPChat.message( // create message objects from them
+						Number(m.sender),
+						Number(m.receiver),
+						m.content,
+						m.clientid,
+						m.sent,
+						new Date().getTime()
+						);
+				message.serverid = m.serverid;
+				// update the last message id
+				this.delivered.push(m.serverid); // add it to the delivered messages
+				// find the corresponding friend in the list
+				this.friendList.forEach(function(friend){
+					// look if we got an open frame for it
+					if (friend.id == message.sender || friend.id == message.receiver) {
+						if (friend.frame == null) {
+							event = { data: {'friend': friend }};
+							this.addChatFrame(event);
+						}
+						    friend.chatframe.addMessage(message); // add the message
+							friend.chatframe.makeActive(); // make that chatframe active
+					}
+				},this);
+			}, this);
+			
+		}
+		// End of messages
+		// FRIEND REQUESTS
+		response.friendrequests.forEach(function(friend){
+			this.newRequest(friend);
+		},this);
+		// END OF FRIEND REQUESTS
+	}
+		
 	PPPChat.controller.prototype.updateLastMessageId = function(id) {
-		this.lastMessageId = Number(id);
+		if (Number(this.lastMessageId) < Number(id)) {
+			this.lastMessageId = Number(id); 
+		}
 	}
 	
 	/**
 	 * Gather messages and other information to be sent
 	 */
 	PPPChat.controller.prototype.buildRequest = function() {
-		request = {};
+		request = {}; // make the request object
+		request.delivered = this.delivered; // assign the read message id's
+		this.delivered = []; // empty the array
+		request.url = host.url;
+		request.fill = PPPChat.fillRequest; // assign the fill requests
+		PPPChat.fillRequest = []; // empty the array
+		request.messages = [];
 		request.lastmessage = this.lastMessageId;
 		// we got messages to be sent
-		if (PPPChat.queue.length > 0) {
-			request.messages = PPPChat.queue; // assign the message objects to be sent
+		PPPChat.queue.forEach(function(m) {
+			message = { 
+					'body': m.body,
+					'sender': m.sender,
+					'clientid': m.clientid,
+					'sent': m.sent,
+					'receiver': m.receiver
+					};
+			request.messages.push(message);
+		});  // assign the message objects to be sent
 			PPPChat.queue = []; // empty the message queue
-		}
 		return request;
 	}
 	
+	/**
+	 * Function for adding a friend to the friendlist 
+	 * @param friend
+	 */
+	PPPChat.controller.prototype.addFriend = function(friend) {
+		console.log('lefut');
+		this.sidebar.append('<div class="friend" uid="' + Number(friend.uid)
+				+'"><div class="friendpic">' +  friend.profilepic + 
+				'</div><div class="friendname">' + friend.firstname + 
+				' '+ friend.lastname + '</div><div class="onlinemark">'
+				+ friend.onlinemark +'</div></div>');
+		label = $('.friend[uid="'+Number(friend.uid)+ '"]');		
+		// create the friend object
+		friendObject = new PPPChat.Friend(friend.firstname, friend.lastname, friend.uid, friend.profilepic, label);
+	
+		// open a chatframe on click
+		label.click({
+			'friend': friendObject },			
+			this.addChatFrame
+		);
+		
+		this.friendList.push(friendObject);
+	}
+	/**
+	 * Adds a chatframe to the UI by the given friend object
+	 * Initially fills the chathistory object with a preloader and requests
+	 * messages via ajax to fill it. 
+	 * @param event
+	 */
+	
+	PPPChat.controller.prototype.addChatFrame = function(event) {
+		friend = event.data.friend;
+		// check if we got the maximum number of chatframes
+		if (PPPChat.chatFrames.length < PPPChat.maxChatFrames) {
+			// if we aint got, then check if we got the chatframe for this uid
+			for (x = 0; x < PPPChat.chatFrames.length; x++) {
+				frame = PPPChat.chatFrames[x];
+				// if we got it then make this frame active then return from this function
+				if (Number(frame.uid) == Number(friend.id)) {
+					frame.makeActive();
+					return false;
+				}
+			}
+		frameid = 	PPPChat.chatFrames.length;
+		$('#chatframewrapper').append('<div id="pppchat" frame="'+frameid+'"></div>');
+		reference = $('[frame="'+frameid + '"]');
+		reference.append('<div class="chatlabel">'+ friend.firstname+' '+friend.lastname +'<div>X</div></div>').append('<div class="outercontainer"><div class="history"></div></div>').append('<div class="inputfield"><textarea class="text"></textarea></div>');
+		chatLabel = reference.children('.chatlabel');
+		chatHistory = chatLabel.next().children('.history');
+		inputField = reference.children('.inputfield').children();
+		
+		frame = new PPPChat.chatFrame(frameid, // the given frame id
+				friend.id, // uid of the friend
+				friend.firstname+ ' '+ friend.lastname, //name of the friend
+				reference, // reference to the frame root
+				chatLabel, // reference to the chatlabel
+				chatHistory, // reference to the chathistory
+				inputField, // reference to the textarea
+				friend.gravatar); // gravatar of the friend
+		PPPChat.chatFrames.push(frame); // add it the chatframes
+		friend.chatframe = frame;
+		}
+	}
+	/**
+	 * The flashing document title regarding to an unread message
+	 */
+	PPPChat.controller.prototype.hasUnread = function() {
+		
+	}
+	
+	
+	/**
+	 * Initialize the plugin
+	 * Create the sidebar, then fill it with friends got by json headscript
+	 * Then create the chatframewrapper and start the background process
+	 */
+	PPPChat.controller.prototype.init = function() {
+		// build up the sidebar
+		$('body').append('<div id="chatsidebar"></div>');
+		this.sidebar = $('#chatsidebar');
+		this.sidebar.append('<div id="sidebaranchor"><div id="searchbar"><input id="searchfield" type="text"></div><div id="sidebaroptions"><img src="trolo" /></div></div>');
+		$('body').append('<div id="pppchathover"></div>');
+		// adding an event handler to open menu
+		$('#sidebaroptions').click({ 'controller' : this}, function(event) {
+			
+			event.data.controller.showMenu();
+		});
+		// assigning the hoverbox
+		PPPChat.hoverBox = $('#pppchathover');
+		// filling up the friendlist
+		if (host.friend != null) {
+        this.friends.forEach(function(friend){
+        	this.addFriend(friend);
+        	}, this);
+		}
+		// creating the menu
+		string = '<div id="cover"></div><div id="menu"><div class="menulabel">'+
+		'<div class="menutitle">Beállítások</div><div id="exitmenu">X</div><select>';
+		this.skins.forEach(function(skin){
+			string+= '<option value="'+ skin.code+'">'+skin.name+'</option>';
+		});
+		string +='</select></div></div>';
+		$('body').append(string);
+				
+				
+		PPPChat.menu = $('#menu');
+		PPPChat.cover = $('#cover');
+		// adding an event handler to hide it
+		$('#exitmenu').click({'controller': this },function(event){
+			event.data.controller.hideMenu()
+		});
+		// adding the chatframe wrapper
+        $('body').append("<div id=\"chatframewrapper\"></div>");
+		this.wrapper = $('#chatframewrapper');
+		PPPChat.controller.background(this); // we start the background process
+	}
+	
+	/**
+	 *  The menu to setup the chat application client side
+	 */
+	PPPChat.controller.prototype.showMenu = function(event) {
+		PPPChat.cover.show();
+		PPPChat.menu.show()
 
+	}
+	/**
+	 *  Hide the menu
+	 */
+	PPPChat.controller.prototype.hideMenu = function() {
+		PPPChat.cover.hide();
+		PPPChat.menu.hide();
+	}
+	
+	
+	/****************************************************************
+	 * MESSAGE METHODS
+	 ***************************************************************/
+ 	/**
+	 * Add a hover event handler to a message
+	 */
+	PPPChat.message.prototype.addHover = function(message) {
+
+
+		this.reference.children().mousemove(function(e){
+			PPPChat.hoverBox.css('display', 'block').css('top', e.clientY +5).css('left', e.clientX+5).text(message);
+		});
+		this.reference.children().mouseout(function(){
+			PPPChat.hoverBox.css('display', 'none');
+		});
+	}
+	/**
+	 * We successfully sent a message to get rid of its pending attribute
+	 */
+	PPPChat.message.prototype.successfullySent = function(serverid) {
+		this.serverid = Number(serverid);
+		this.reference.children().removeClass('pending');
+		this.reference.attr('serverid', serverid);
+		this.sent = timeConverter() ;
+	}
+	/**
+	 * Some helper function
+	 */
+	function timeConverter(UNIX_timestamp){
+		  var a = new Date(UNIX_timestamp);
+		  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+		  var year = a.getFullYear();
+		  var month = months[a.getMonth()];
+		  var date = a.getDate();
+		  var hour = a.getHours();
+		  var min = a.getMinutes();
+		  if (min < 10) min = '0' + min;
+		  var sec = a.getSeconds();
+		  var time = date + ', ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+		  return time;
+		}	
+	
 	/**
 	 * Start our script
 	 */
-	var ajax = new PPPChat.Ajax(host.url);
-	var chat = new PPPChat.controller(ajax);
+	var chat = new PPPChat.controller();
 	chat.init();
+
+	
 });
 
 

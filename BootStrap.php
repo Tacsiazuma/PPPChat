@@ -14,8 +14,14 @@
 
 namespace PPPChat;
 
+error_reporting(E_ALL);
+
 use PPPChat\Controller\AjaxController;
 use PPPChat\Controller\HTTPController;
+use PPPChat\Message\MessageMapper;
+use PPPChat\Ajax\Response;
+use PPPChat\UI\Admin;
+use PPPChat\User\UserMapper;
 
 // avoid direct script access
 defined('ABSPATH') or die("No script kiddies please!");
@@ -27,9 +33,13 @@ include __DIR__.'/spl_autoload.php';
 // if not then we simply pass our workflow
     add_action('init', function() {
         define('PPP_PLUGIN_URL', plugin_dir_url(__FILE__));
-        // add action listeners for ajax requests
-        $ajax = new AjaxController();
+        // instantiate the ajax controller and inject its dependencies
+        $ajax = new AjaxController(new MessageMapper(get_current_user_id()),new UserMapper(get_current_user_id()), new Response());
         add_action('wp_ajax_refresh', [$ajax, 'parseRequest']);
-        $b = new HTTPController($admin, $chat);
+        // create the http controller and inject its dependencies
+        $b = new HTTPController(new Admin(), new UserMapper(get_current_user_id()));
+        add_filter('get_the_author', function() {
+            echo "<div authorid='1'></div>";
+        });
     }); 
   
