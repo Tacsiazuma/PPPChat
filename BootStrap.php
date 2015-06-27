@@ -1,6 +1,6 @@
 ﻿<?php
 
-
+// eqweqe
 
 /**
  * Plugin Name: PPP Chat
