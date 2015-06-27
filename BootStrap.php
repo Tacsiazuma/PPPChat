@@ -1,4 +1,6 @@
-<?php
+﻿<?php
+
+
 
 /**
  * Plugin Name: PPP Chat
